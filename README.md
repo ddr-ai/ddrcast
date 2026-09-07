@@ -25,7 +25,7 @@ Repository: [https://github.com/ddr-ai/ddrcast](https://github.com/ddr-ai/ddrcas
 | Cast | **Google Cast iOS Sender SDK** (`google-cast-sdk` ~> 4.8.6) via CocoaPods | Official implementation of the Cast V2 protocol (local mDNS discovery, TLS to port 8009, media namespace). |
 | Receiver | **Default Media Receiver only** | No custom receiver and no registered Cast App ID. Direct media URLs are what this receiver is for. |
 | Search | DuckDuckGo | URL bar accepts either a URL or a search query. |
-| CI | GitHub Actions `macos-15` | Builds an `.ipa` on every push. Signs when secrets exist; otherwise unsigned for sideload. |
+| CI | GitHub Actions `macos-26` | Builds an `.ipa` on every push with the iOS SDK that includes `UIGlassEffect` (required by Cast SDK 4.8.6). Signs when secrets exist; otherwise unsigned for sideload. |
 
 Using the official SDK (instead of a homegrown Cast client) is the reliable way to speak the Google Cast protocol, including session resume and media status. Discovery and media transport stay on the LAN. Guest Mode / cloud relay is not a feature of this app.
 
