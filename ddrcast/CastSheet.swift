@@ -89,7 +89,7 @@ struct CastSheet: View {
                             VStack(alignment: .leading) {
                                 Text(CastDeviceName.display(device))
                                     .foregroundStyle(.primary)
-                                Text(device.modelName)
+                                Text(device.modelName ?? "Cast device")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

@@ -29,7 +29,7 @@ enum CastDeviceName {
     static func display(_ device: GCKDevice) -> String {
         let friendly = device.friendlyName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !friendly.isEmpty { return friendly }
-        let model = device.modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = device.modelName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !model.isEmpty { return model }
         return "Chromecast"
     }
