@@ -93,7 +93,7 @@ final class BrowserModel: NSObject, ObservableObject {
     func reload() { webView?.reload() }
 
     func refreshVideos() {
-        webView?.evaluateJavaScript(VideoDetector.userScript) { [weak self] _, _ in }
+        webView?.evaluateJavaScript(VideoDetector.userScript, completionHandler: nil)
     }
 
     func applyVideoPayload(_ raw: Any) {

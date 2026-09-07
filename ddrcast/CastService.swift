@@ -25,6 +25,16 @@ enum CastConnectionState: Equatable {
     }
 }
 
+enum CastDeviceName {
+    static func display(_ device: GCKDevice) -> String {
+        let friendly = device.friendlyName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !friendly.isEmpty { return friendly }
+        let model = device.modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !model.isEmpty { return model }
+        return "Chromecast"
+    }
+}
+
 enum TextInputCapability {
     case unsupportedDefaultReceiver
 }
@@ -74,8 +84,9 @@ final class CastService: NSObject, ObservableObject {
         sessions?.add(self)
         refreshDevices()
         if let session = sessions?.currentCastSession {
-            connection = .connected(session.device.friendlyName)
-            statusText = "Connected to \(session.device.friendlyName)"
+            let name = CastDeviceName.display(session.device)
+            connection = .connected(name)
+            statusText = "Connected to \(name)"
             session.remoteMediaClient?.add(self)
         }
     }
@@ -97,11 +108,12 @@ final class CastService: NSObject, ObservableObject {
 
     func connect(to device: GCKDevice) {
         lastError = nil
-        connection = .connecting(device.friendlyName)
-        statusText = "Connecting to \(device.friendlyName)…"
+        let name = CastDeviceName.display(device)
+        connection = .connecting(name)
+        statusText = "Connecting to \(name)…"
         let ok = sessions?.startSession(with: device) ?? false
         if !ok {
-            connection = .failed("Could not start a Cast session with \(device.friendlyName).")
+            connection = .failed("Could not start a Cast session with \(name).")
             statusText = "Connection failed"
         }
     }
@@ -144,7 +156,7 @@ final class CastService: NSObject, ObservableObject {
         request.delegate = self
         loadRequest = request
         nowPlayingTitle = candidate.title
-        statusText = "Loading “\(candidate.title)” on \(session.device.friendlyName)…"
+        statusText = "Loading “\(candidate.title)” on \(CastDeviceName.display(session.device))…"
     }
 
     func togglePlayPause() {
@@ -200,15 +212,17 @@ extension CastService: GCKDiscoveryManagerListener {
 extension CastService: GCKSessionManagerListener {
     nonisolated func sessionManager(_ sessionManager: GCKSessionManager, willStart session: GCKSession) {
         Task { @MainActor in
-            self.connection = .connecting(session.device.friendlyName)
-            self.statusText = "Connecting to \(session.device.friendlyName)…"
+            let name = CastDeviceName.display(session.device)
+            self.connection = .connecting(name)
+            self.statusText = "Connecting to \(name)…"
         }
     }
 
     nonisolated func sessionManager(_ sessionManager: GCKSessionManager, didStart session: GCKCastSession) {
         Task { @MainActor in
-            self.connection = .connected(session.device.friendlyName)
-            self.statusText = "Connected to \(session.device.friendlyName)"
+            let name = CastDeviceName.display(session.device)
+            self.connection = .connected(name)
+            self.statusText = "Connected to \(name)"
             self.lastError = nil
             session.remoteMediaClient?.add(self)
             if let pending = self.pendingMedia {
@@ -250,7 +264,7 @@ extension CastService: GCKSessionManagerListener {
 }
 
 extension CastService: GCKRemoteMediaClientListener {
-    nonisolated func remoteMediaClient(_ client: GCKRemoteMediaClient, didUpdateMediaStatus mediaStatus: GCKMediaStatus?) {
+    nonisolated func remoteMediaClient(_ client: GCKRemoteMediaClient, didUpdate mediaStatus: GCKMediaStatus?) {
         Task { @MainActor in
             guard let mediaStatus else {
                 self.isPlaying = false

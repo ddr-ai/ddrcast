@@ -62,7 +62,7 @@ struct CastSheet: View {
     private func color(for state: CastConnectionState) -> Color {
         switch state {
         case .connected: return .green
-        case .connecting: return .yellow
+        case .connecting, .discovering: return .yellow
         case .failed: return .red
         case .disconnecting: return .orange
         case .idle: return .gray
@@ -87,14 +87,14 @@ struct CastSheet: View {
                         HStack {
                             Image(systemName: "tv")
                             VStack(alignment: .leading) {
-                                Text(device.friendlyName)
+                                Text(CastDeviceName.display(device))
                                     .foregroundStyle(.primary)
                                 Text(device.modelName)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if cast.connection.deviceName == device.friendlyName, cast.connection.isConnected {
+                            if cast.connection.deviceName == CastDeviceName.display(device), cast.connection.isConnected {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(Color.cyan)
                             }
