@@ -1,0 +1,168 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode
+        run: xcodebuild -version && xcodebuild -showsdks | head
+
+      - name: Install CocoaPods
+        run: |
+          if ! command -v pod >/dev/null; then brew install cocoapods; fi
+          pod --version
+
+      - name: Build IPA
+        env:
+          BUILD: ${{ github.run_number }}
+          VERSION: 1.0.${{ github.run_number }}
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+        run: |
+          chmod +x scripts/ci-build.sh
+          scripts/ci-build.sh
+
+      - name: Package metadata
+        env:
+          BUILD: ${{ github.run_number }}
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          test -f ddrcast.ipa
+          SIGNED=0
+          if [[ -f build-meta.env ]]; then
+            # shellcheck disable=SC1091
+            source build-meta.env
+          fi
+          export VERSION="1.0.${BUILD}"
+          export SIZE=$(stat -f%z ddrcast.ipa)
+          export IPA_URL="https://github.com/ddr-ai/ddrcast/releases/download/unsigned-ipa/ddrcast.ipa"
+          export DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          export SIGNED
+          python3 - << 'PY'
+          import json, os, html as htmlmod
+          version = os.environ["VERSION"]
+          build = int(os.environ["BUILD"])
+          size = int(os.environ["SIZE"])
+          ipa = os.environ["IPA_URL"]
+          date = os.environ["DATE"]
+          signed = os.environ.get("SIGNED") == "1"
+          notes = (os.environ.get("NOTES") or "Latest main").splitlines()[0].strip()
+          if signed:
+              notes = "Signed IPA. " + notes
+          else:
+              notes = "Unsigned IPA (sideload). " + notes
+          notes_html = htmlmod.escape(notes)
+          latest = {
+            "version": version,
+            "build": build,
+            "ipaURL": ipa,
+            "notes": notes,
+            "date": date,
+            "signed": signed,
+            "installPageURL": "https://ddr-ai.github.io/ddrcast/",
+          }
+          altstore = {
+            "name": "ddrcast",
+            "identifier": "ai.ddr.ddrcast.source",
+            "sourceURL": "https://github.com/ddr-ai/ddrcast/releases/download/unsigned-ipa/altstore.json",
+            "apps": [{
+              "name": "ddrcast",
+              "bundleIdentifier": "ai.ddr.ddrcast",
+              "developerName": "ddr-ai",
+              "subtitle": "Web browser that casts video to Chromecast",
+              "localizedDescription": "Native iPhone/iPad browser that discovers Chromecast devices on the local network and casts direct video URLs using Google’s Default Media Receiver.",
+              "iconURL": "https://raw.githubusercontent.com/ddr-ai/ddrcast/main/ddrcast/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+              "tintColor": "22D3EE",
+              "category": "entertainment",
+              "versions": [{
+                "version": version,
+                "buildVersion": str(build),
+                "date": date,
+                "localizedDescription": notes,
+                "downloadURL": ipa,
+                "size": size,
+                "minOSVersion": "17.0",
+              }],
+            }],
+          }
+          open("latest.json","w").write(json.dumps(latest, indent=2) + "\n")
+          open("altstore.json","w").write(json.dumps(altstore, indent=2) + "\n")
+          os.makedirs("site", exist_ok=True)
+          enc = ipa.replace(":", "%3A").replace("/", "%2F")
+          tmpl = open("web/install.html").read()
+          html = (tmpl
+            .replace("__VERSION__", version)
+            .replace("__BUILD__", str(build))
+            .replace("__NOTES__", notes_html)
+            .replace("__ENC__", enc)
+            .replace("__IPA__", ipa))
+          open("site/index.html","w").write(html)
+          print(open("latest.json").read())
+          PY
+
+      - name: Publish phone install page
+        if: github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          force_orphan: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ddrcast-ipa
+          path: |
+            ddrcast.ipa
+            latest.json
+            altstore.json
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          SIGNED=0
+          if [[ -f build-meta.env ]]; then
+            # shellcheck disable=SC1091
+            source build-meta.env
+          fi
+          tag=unsigned-ipa
+          kind="Unsigned"
+          [[ "$SIGNED" == "1" ]] && kind="Signed"
+          notes="${kind} arm64 iPhone/iPad IPA (build ${BUILD}).
+
+          Phone install page (no Mac / no Xcode):
+          https://ddr-ai.github.io/ddrcast/
+
+          AltStore/SideStore source:
+          https://github.com/ddr-ai/ddrcast/releases/download/unsigned-ipa/altstore.json
+
+          Bundle ID: ai.ddr.ddrcast
+
+          If this build is unsigned, sign it with your Apple ID in Sideloadly, AltStore, SideStore, Feather, or ESign. See README.md."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" ddrcast.ipa latest.json altstore.json --clobber
+            gh api -X POST repos/ddr-ai/ddrcast/pages -f source[branch]=gh-pages -f source[path]=/ >/dev/null 2>&1 || true
+            gh release edit "$tag" --notes "$notes" --title "ddrcast IPA (build ${BUILD})"
+          else
+            gh release create "$tag" ddrcast.ipa latest.json altstore.json --title "ddrcast IPA (build ${BUILD})" --notes "$notes"
+          fi

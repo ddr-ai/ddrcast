@@ -1,0 +1,319 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000001 /* ddrcastApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* ddrcastApp.swift */; };
+		B10000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* AppDelegate.swift */; };
+		B10000000000000000000003 /* AddressParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* AddressParser.swift */; };
+		B10000000000000000000004 /* VideoDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* VideoDetector.swift */; };
+		B10000000000000000000005 /* CastService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* CastService.swift */; };
+		B10000000000000000000006 /* BrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* BrowserModel.swift */; };
+		B10000000000000000000007 /* WebContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* WebContainerView.swift */; };
+		B10000000000000000000008 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* BrowserView.swift */; };
+		B10000000000000000000009 /* CastSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* CastSheet.swift */; };
+		B1000000000000000000000A /* CastKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000A /* CastKeyboardView.swift */; };
+		B1000000000000000000000B /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* UpdateService.swift */; };
+		B1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* Assets.xcassets */; };
+		B1000000000000000000000D /* Home.html in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* Home.html */; };
+		B1000000000000000000000E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B20000000000000000000001 /* ddrcastApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ddrcastApp.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* AddressParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressParser.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* VideoDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDetector.swift; sourceTree = "<group>"; };
+		B20000000000000000000005 /* CastService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastService.swift; sourceTree = "<group>"; };
+		B20000000000000000000006 /* BrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserModel.swift; sourceTree = "<group>"; };
+		B20000000000000000000007 /* WebContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContainerView.swift; sourceTree = "<group>"; };
+		B20000000000000000000008 /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		B20000000000000000000009 /* CastSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSheet.swift; sourceTree = "<group>"; };
+		B2000000000000000000000A /* CastKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastKeyboardView.swift; sourceTree = "<group>"; };
+		B2000000000000000000000B /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		B2000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B2000000000000000000000D /* Home.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = Home.html; sourceTree = "<group>"; };
+		B2000000000000000000000E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B2000000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B30000000000000000000001 /* ddrcast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ddrcast.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B40000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B50000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				B50000000000000000000002 /* ddrcast */,
+				B50000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B50000000000000000000002 /* ddrcast */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* ddrcastApp.swift */,
+				B20000000000000000000002 /* AppDelegate.swift */,
+				B20000000000000000000008 /* BrowserView.swift */,
+				B20000000000000000000006 /* BrowserModel.swift */,
+				B20000000000000000000007 /* WebContainerView.swift */,
+				B20000000000000000000003 /* AddressParser.swift */,
+				B20000000000000000000005 /* CastService.swift */,
+				B20000000000000000000009 /* CastSheet.swift */,
+				B2000000000000000000000A /* CastKeyboardView.swift */,
+				B20000000000000000000004 /* VideoDetector.swift */,
+				B2000000000000000000000B /* UpdateService.swift */,
+				B2000000000000000000000D /* Home.html */,
+				B2000000000000000000000C /* Assets.xcassets */,
+				B2000000000000000000000E /* PrivacyInfo.xcprivacy */,
+				B2000000000000000000000F /* Info.plist */,
+			);
+			path = ddrcast;
+			sourceTree = "<group>";
+		};
+		B50000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B30000000000000000000001 /* ddrcast.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B60000000000000000000001 /* ddrcast */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B80000000000000000000002 /* Build configuration list for PBXNativeTarget "ddrcast" */;
+			buildPhases = (
+				B70000000000000000000001 /* Sources */,
+				B40000000000000000000001 /* Frameworks */,
+				B70000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ddrcast;
+			productName = ddrcast;
+			productReference = B30000000000000000000001 /* ddrcast.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B90000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					B60000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = B80000000000000000000001 /* Build configuration list for PBXProject "ddrcast" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B50000000000000000000001;
+			productRefGroup = B50000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B60000000000000000000001 /* ddrcast */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B70000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1000000000000000000000C /* Assets.xcassets in Resources */,
+				B1000000000000000000000D /* Home.html in Resources */,
+				B1000000000000000000000E /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B70000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* ddrcastApp.swift in Sources */,
+				B10000000000000000000002 /* AppDelegate.swift in Sources */,
+				B10000000000000000000003 /* AddressParser.swift in Sources */,
+				B10000000000000000000004 /* VideoDetector.swift in Sources */,
+				B10000000000000000000005 /* CastService.swift in Sources */,
+				B10000000000000000000006 /* BrowserModel.swift in Sources */,
+				B10000000000000000000007 /* WebContainerView.swift in Sources */,
+				B10000000000000000000008 /* BrowserView.swift in Sources */,
+				B10000000000000000000009 /* CastSheet.swift in Sources */,
+				B1000000000000000000000A /* CastKeyboardView.swift in Sources */,
+				B1000000000000000000000B /* UpdateService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BA0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BA0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BA0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ddrcast/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ddrcast;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.ddr.ddrcast;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ddrcast/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ddrcast;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = ai.ddr.ddrcast;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B80000000000000000000001 /* Build configuration list for PBXProject "ddrcast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA0000000000000000000001 /* Debug */,
+				BA0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B80000000000000000000002 /* Build configuration list for PBXNativeTarget "ddrcast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA0000000000000000000003 /* Debug */,
+				BA0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B90000000000000000000001 /* Project object */;
+}
