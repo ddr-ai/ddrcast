@@ -10,50 +10,12 @@
   main { max-width: 36rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
   h1 { font-weight: 650; letter-spacing: -0.03em; margin: 0 0 0.3rem; }
   .lead { color: #9db0c8; line-height: 1.45; }
-  .card { background: #162033; border-radius: 16px; padding: 1rem 1.1rem; margin: 1rem 0; }
-  a { color: #22d3ee; text-decoration: none; }
-  .clip { display: block; padding: 0.75rem 0; border-bottom: 1px solid #243044; }
-  .clip:last-child { border-bottom: 0; }
-  .clip strong { display: block; color: #f8fafc; }
-  .clip span { color: #9db0c8; font-size: 0.9rem; }
-  code { font-size: 0.85rem; color: #f8fafc; word-break: break-all; }
-  .hint { font-size: 0.9rem; color: #9db0c8; }
 </style>
 </head>
 <body>
 <main>
   <h1>ddrcast</h1>
-  <p class="lead">A web browser that casts video to Chromecast on your Wi-Fi. Type a URL or search in the bar above, then tap the TV button.</p>
-
-  <div class="card">
-    <strong>Try a direct video URL</strong>
-    <p class="hint">These files play on Google’s Default Media Receiver. Tap one, then Cast.</p>
-    <a class="clip" href="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
-      <strong>Big Buck Bunny</strong>
-      <span>MP4 · Google Cast sample</span>
-    </a>
-    <a class="clip" href="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4">
-      <strong>Elephants Dream</strong>
-      <span>MP4 · Google Cast sample</span>
-    </a>
-    <a class="clip" href="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4">
-      <strong>Sintel</strong>
-      <span>MP4 · Google Cast sample</span>
-    </a>
-    <a class="clip" href="https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8">
-      <strong>BipBop HLS</strong>
-      <span>HLS / m3u8 · Apple test stream</span>
-    </a>
-  </div>
-
-  <div class="card">
-    <strong>How casting works</strong>
-    <p class="hint">
-      ddrcast prefers a direct media URL from the address bar or from a <code>&lt;video&gt;</code> tag.
-      Sites that use DRM or blob URLs (YouTube, Netflix, and similar) cannot be sent to the Default Media Receiver.
-      The app will not silently start screen mirroring.
-    </p>
-  </div>
+  <p class="lead">Search or enter a URL in the bar above. Tap a video to capture its source, then cast it.</p>
 </main>
 </body>
 </html>

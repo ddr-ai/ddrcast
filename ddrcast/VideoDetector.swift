@@ -18,6 +18,44 @@ struct DetectedVideo: Identifiable, Equatable {
     var primaryURL: URL? { urls.first }
 }
 
+struct TappedVideo: Equatable {
+    var title: String
+    var pageURL: String
+    var contentURLs: [URL]
+    var adURLs: [URL]
+    var preferredURL: URL?
+    var hasAd: Bool
+    var waitingForContent: Bool
+    var currentTime: TimeInterval
+    var duration: TimeInterval
+    var mime: String
+    var playing: Bool
+
+    var displayURL: URL? { preferredURL ?? contentURLs.last ?? contentURLs.first }
+
+    var candidate: CastCandidate? {
+        guard let url = displayURL else { return nil }
+        let label: String
+        if hasAd, !waitingForContent {
+            label = "Content source (ad skipped)"
+        } else if AddressParser.isDirectMediaURL(url) {
+            label = "Direct media URL"
+        } else {
+            label = "Tapped video source"
+        }
+        return CastCandidate(
+            id: url.absoluteString,
+            title: title,
+            url: url,
+            mime: mime.isEmpty ? AddressParser.mimeType(for: url) : mime,
+            startTime: 0,
+            sourceLabel: label,
+            reliability: hasAd ? 95 : 90,
+            recommended: true
+        )
+    }
+}
+
 struct CastCandidate: Identifiable, Equatable {
     let id: String
     let title: String
@@ -32,12 +70,24 @@ struct CastCandidate: Identifiable, Equatable {
 enum VideoDetector {
     static let messageHandlerName = "ddrcast"
 
-    /// Injected at document end. Reports `<video>` tags, `<source>` children, and og:video.
-    static let userScript = """
+    /// Runs in every frame. Does nothing until the user taps/clicks a video
+    /// (or its play control). Then it watches only that element so preroll ads
+    /// can be replaced by the content source.
+    static let tapScript = #"""
     (function() {
-      if (window.__ddrcastInstalled) return;
-      window.__ddrcastInstalled = true;
+      if (window.__ddrcastTapInstalled) return;
+      window.__ddrcastTapInstalled = true;
 
+      var watched = null;
+      var extra = [];
+
+      function post(payload) {
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ddrcast) {
+            window.webkit.messageHandlers.ddrcast.postMessage(payload);
+          }
+        } catch (e) {}
+      }
       function abs(u) {
         try { return new URL(u, document.baseURI).href; } catch (e) { return null; }
       }
@@ -46,217 +96,169 @@ enum VideoDetector {
         if (u.indexOf('blob:') === 0 || u.indexOf('mediasource:') === 0 || u.indexOf('data:') === 0) return false;
         return u.indexOf('http://') === 0 || u.indexOf('https://') === 0;
       }
-      function collect() {
-        const items = [];
-        const seen = {};
-        function push(item) {
-          const raw = (item.urls || []).map(abs).filter(Boolean);
-          const direct = raw.filter(isDirect);
-          const key = (direct[0] || raw[0] || item.title || '') + '|' + (item.kind || '');
-          if (seen[key]) return;
-          seen[key] = true;
-          let reason = null;
-          if (!direct.length) {
-            if (raw.some(function(u) { return u.indexOf('blob:') === 0; })) {
-              reason = 'blob-url';
-            } else {
-              reason = 'no-direct-url';
-            }
-          }
-          items.push({
-            title: item.title || document.title || 'Video',
-            pageURL: location.href,
-            urls: direct,
-            mime: item.mime || '',
-            currentTime: item.currentTime || 0,
-            duration: item.duration || 0,
-            playing: !!item.playing,
-            width: item.width || 0,
-            height: item.height || 0,
-            kind: item.kind || 'video-element',
-            castable: direct.length > 0,
-            blockReason: reason
-          });
-        }
-        document.querySelectorAll('video').forEach(function(v, i) {
-          const urls = [];
-          if (v.currentSrc) urls.push(v.currentSrc);
-          if (v.src) urls.push(v.src);
-          v.querySelectorAll('source').forEach(function(s) {
-            if (s.src) urls.push(s.src);
-          });
-          const srcEl = v.querySelector('source');
-          push({
-            title: v.getAttribute('title') || v.getAttribute('aria-label') || document.title || ('Video ' + (i + 1)),
-            urls: urls,
-            mime: (srcEl && srcEl.getAttribute('type')) || '',
-            currentTime: Number.isFinite(v.currentTime) ? v.currentTime : 0,
-            duration: Number.isFinite(v.duration) ? v.duration : 0,
-            playing: !v.paused && !v.ended,
-            width: v.videoWidth || 0,
-            height: v.videoHeight || 0,
-            kind: 'video-element'
-          });
-        });
-        const og = document.querySelector('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"]');
-        if (og && og.content) {
-          push({
-            title: document.title || 'Page video',
-            urls: [og.content],
-            kind: 'og-video'
-          });
-        }
-        const payload = {
-          type: 'videos',
-          pageURL: location.href,
-          title: document.title,
-          videos: items
-        };
-        try {
-          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ddrcast) {
-            window.webkit.messageHandlers.ddrcast.postMessage(payload);
-          }
-        } catch (e) {}
-        return payload;
+      function isAd(u) {
+        if (!u) return false;
+        var s = String(u).toLowerCase();
+        return /doubleclick|googlesyndication|googleadservices|googletagservices|pagead|adsystem|adsrvr|adnxs|adservice|adserver|\/ads\/|\/ad\/|preroll|midroll|vast|vmap|ima3|spotx|moatads|pubmatic|advertising|ad-break|adbreak/.test(s);
       }
-      collect();
-      const mo = new MutationObserver(function() { collect(); });
-      mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
-      document.addEventListener('play', collect, true);
-      document.addEventListener('loadedmetadata', collect, true);
+      function looksMedia(u) {
+        if (!u) return false;
+        var s = String(u).split('?')[0].toLowerCase();
+        return /\.(mp4|m4v|m3u8|mpd|webm|mov|mkv)(\b|$)/.test(s)
+          || s.indexOf('m3u8') !== -1
+          || s.indexOf('/video') !== -1
+          || /mime=video|content-type=video/.test(String(u).toLowerCase());
+      }
+      function fromVideo(v) {
+        var urls = [];
+        if (v.currentSrc) urls.push(v.currentSrc);
+        if (v.src) urls.push(v.src);
+        var sources = v.querySelectorAll('source');
+        for (var i = 0; i < sources.length; i++) {
+          if (sources[i].src) urls.push(sources[i].src);
+        }
+        return urls;
+      }
+      function report(v) {
+        var raw = fromVideo(v).concat(extra);
+        var direct = [];
+        var seen = {};
+        for (var i = 0; i < raw.length; i++) {
+          var u = abs(raw[i]);
+          if (!u || !isDirect(u) || seen[u]) continue;
+          seen[u] = true;
+          direct.push(u);
+        }
+        var content = [];
+        var ads = [];
+        for (var j = 0; j < direct.length; j++) {
+          if (isAd(direct[j])) ads.push(direct[j]);
+          else content.push(direct[j]);
+        }
+        var preferred = null;
+        if (content.length) {
+          preferred = content[content.length - 1];
+        }
+        var dur = Number.isFinite(v.duration) ? v.duration : 0;
+        if (!preferred && ads.length && dur > 0 && dur < 45) {
+          preferred = null;
+        }
+        post({
+          type: 'tapped-video',
+          title: v.getAttribute('title') || v.getAttribute('aria-label') || document.title || 'Video',
+          pageURL: location.href,
+          urls: content.length ? content : direct,
+          adUrls: ads,
+          preferredURL: preferred,
+          hasAd: ads.length > 0,
+          waitingForContent: ads.length > 0 && content.length === 0,
+          currentTime: Number.isFinite(v.currentTime) ? v.currentTime : 0,
+          duration: dur,
+          mime: '',
+          playing: !v.paused && !v.ended
+        });
+      }
+      function unwatch() {
+        if (!watched) return;
+        var v = watched;
+        if (v.__ddrcastOnSrc) {
+          v.removeEventListener('loadedmetadata', v.__ddrcastOnSrc);
+          v.removeEventListener('durationchange', v.__ddrcastOnSrc);
+          v.removeEventListener('play', v.__ddrcastOnSrc);
+          v.removeEventListener('emptied', v.__ddrcastOnSrc);
+        }
+        if (v.__ddrcastMO) v.__ddrcastMO.disconnect();
+        if (v.__ddrcastPO) { try { v.__ddrcastPO.disconnect(); } catch (e) {} }
+        watched = null;
+        extra = [];
+      }
+      function watchVideo(v) {
+        if (!v) return;
+        if (watched !== v) {
+          unwatch();
+          watched = v;
+          extra = [];
+          var onSrc = function() { report(v); };
+          v.__ddrcastOnSrc = onSrc;
+          v.addEventListener('loadedmetadata', onSrc);
+          v.addEventListener('durationchange', onSrc);
+          v.addEventListener('play', onSrc);
+          v.addEventListener('emptied', onSrc);
+          var mo = new MutationObserver(onSrc);
+          mo.observe(v, { attributes: true, attributeFilter: ['src'] });
+          var sources = v.querySelectorAll('source');
+          for (var i = 0; i < sources.length; i++) {
+            mo.observe(sources[i], { attributes: true, attributeFilter: ['src'] });
+          }
+          v.__ddrcastMO = mo;
+          try {
+            var po = new PerformanceObserver(function(list) {
+              var entries = list.getEntries();
+              for (var k = 0; k < entries.length; k++) {
+                var n = entries[k].name;
+                if (isDirect(n) && looksMedia(n) && !isAd(n)) {
+                  extra.push(n);
+                  report(v);
+                }
+              }
+            });
+            po.observe({ type: 'resource', buffered: true });
+            v.__ddrcastPO = po;
+          } catch (e) {}
+        }
+        report(v);
+      }
+      function videoFromEvent(t) {
+        if (!t) return null;
+        if (t.tagName === 'VIDEO') return t;
+        if (t.closest) {
+          var v = t.closest('video');
+          if (v) return v;
+          var root = t.closest('figure, [class*="player"], [class*="video"], [id*="player"], [id*="video"]');
+          if (root && root.querySelector) {
+            var inner = root.querySelector('video');
+            if (inner) return inner;
+          }
+        }
+        return null;
+      }
+      document.addEventListener('click', function(ev) {
+        var v = videoFromEvent(ev.target);
+        if (v) watchVideo(v);
+      }, true);
+      document.addEventListener('touchend', function(ev) {
+        if (!ev.changedTouches || !ev.changedTouches.length) return;
+        var n = document.elementFromPoint(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY);
+        var v = videoFromEvent(n);
+        if (v) watchVideo(v);
+      }, true);
     })();
-    """
+    """#
 
-    static func parseVideos(_ raw: Any) -> [DetectedVideo] {
-        let dict: [String: Any]
-        if let d = raw as? [String: Any] {
-            dict = d
-        } else if let arr = raw as? [[String: Any]] {
-            dict = ["videos": arr]
-        } else {
-            return []
+    static func parseTapped(_ raw: Any) -> TappedVideo? {
+        guard let dict = raw as? [String: Any] else { return nil }
+        let type = dict["type"] as? String
+        if let type, type != "tapped-video" { return nil }
+        func urls(_ key: String) -> [URL] {
+            ((dict[key] as? [String]) ?? []).compactMap { URL(string: $0) }
         }
-        let list = (dict["videos"] as? [[String: Any]]) ?? []
-        return list.enumerated().map { index, item in
-            let urlStrings = (item["urls"] as? [String]) ?? []
-            let urls = urlStrings.compactMap { URL(string: $0) }
-            let title = (item["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return DetectedVideo(
-                id: "\(index)-\(urls.first?.absoluteString ?? title ?? "v")",
-                title: (title?.isEmpty == false ? title! : "Video \(index + 1)"),
-                pageURL: item["pageURL"] as? String ?? "",
-                urls: urls,
-                mime: item["mime"] as? String ?? "",
-                currentTime: (item["currentTime"] as? Double) ?? 0,
-                duration: (item["duration"] as? Double) ?? 0,
-                playing: item["playing"] as? Bool ?? false,
-                width: item["width"] as? Int ?? 0,
-                height: item["height"] as? Int ?? 0,
-                kind: item["kind"] as? String ?? "video-element",
-                castable: (item["castable"] as? Bool) ?? !urls.isEmpty,
-                blockReason: item["blockReason"] as? String
-            )
-        }
-    }
-
-    static func candidates(pageURL: URL?, pageTitle: String, videos: [DetectedVideo]) -> [CastCandidate] {
-        var items: [CastCandidate] = []
-        if let pageURL, AddressParser.isDirectMediaURL(pageURL) {
-            items.append(
-                CastCandidate(
-                    id: "page-\(pageURL.absoluteString)",
-                    title: pageTitle.isEmpty ? pageURL.lastPathComponent : pageTitle,
-                    url: pageURL,
-                    mime: AddressParser.mimeType(for: pageURL),
-                    startTime: 0,
-                    sourceLabel: "Direct video URL",
-                    reliability: 100,
-                    recommended: false
-                )
-            )
-        }
-        for video in videos where video.castable {
-            guard let url = video.primaryURL else { continue }
-            var score = 70
-            if video.kind == "video-element" { score = 80 }
-            if video.playing { score += 10 }
-            if AddressParser.isDirectMediaURL(url) { score += 5 }
-            let mime = video.mime.isEmpty ? AddressParser.mimeType(for: url) : video.mime
-            let label: String
-            if video.kind == "og-video" {
-                label = "Open Graph video"
-            } else if video.playing {
-                label = "Playing <video> source"
-            } else {
-                label = "Extracted <video> source"
-            }
-            items.append(
-                CastCandidate(
-                    id: video.id,
-                    title: video.title,
-                    url: url,
-                    mime: mime,
-                    startTime: video.currentTime,
-                    sourceLabel: label,
-                    reliability: score,
-                    recommended: false
-                )
-            )
-        }
-        items.sort { $0.reliability > $1.reliability }
-        var seen = Set<String>()
-        items = items.filter { item in
-            if seen.contains(item.url.absoluteString) { return false }
-            seen.insert(item.url.absoluteString)
-            return true
-        }
-        if let best = items.first {
-            items[0] = CastCandidate(
-                id: best.id,
-                title: best.title,
-                url: best.url,
-                mime: best.mime,
-                startTime: best.startTime,
-                sourceLabel: best.sourceLabel,
-                reliability: best.reliability,
-                recommended: true
-            )
-        }
-        return items
-    }
-
-    static func pageCastBlockReason(pageURL: URL?, videos: [DetectedVideo], candidates: [CastCandidate]) -> String? {
-        if !candidates.isEmpty { return nil }
-        if let pageURL, isLikelyDRMHost(pageURL) {
-            return """
-            This site does not expose a direct media URL the Chromecast Default Media Receiver can play (often DRM or encrypted streams). \
-            ddrcast will not switch to screen mirroring. Casting the webpage itself would need a custom Cast receiver app, which is not configured.
-            """
-        }
-        if videos.contains(where: { $0.blockReason == "blob-url" }) {
-            return """
-            The video on this page uses a blob: or Media Source URL, which cannot be sent to a Chromecast. \
-            ddrcast will not fall back to screen mirroring. A custom receiver is not configured.
-            """
-        }
-        if !videos.isEmpty {
-            return """
-            Videos were found on this page but none have a direct http(s) media URL the Default Media Receiver can load. \
-            Screen mirroring is not used.
-            """
-        }
-        return """
-        No castable video was found on this page. Enter a direct media URL (mp4, HLS / m3u8, webm) or open a page whose <video> tag has a real source URL.
-        """
-    }
-
-    static func isLikelyDRMHost(_ url: URL) -> Bool {
-        let host = (url.host ?? "").lowercased()
-        let hosts = [
-            "youtube.com", "youtu.be", "netflix.com", "disneyplus.com", "hulu.com",
-            "primevideo.com", "amazon.com", "max.com", "hbomax.com", "paramountplus.com",
-            "peacocktv.com", "apple.com", "tv.apple.com", "play.google.com",
-        ]
-        return hosts.contains { host == $0 || host.hasSuffix(".\($0)") }
+        let content = urls("urls").filter { !AddressParser.isLikelyAdURL($0) }
+        let ads = urls("adUrls") + urls("urls").filter { AddressParser.isLikelyAdURL($0) }
+        let preferred = (dict["preferredURL"] as? String).flatMap(URL.init(string:))
+            ?? content.last
+        let title = (dict["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TappedVideo(
+            title: (title?.isEmpty == false ? title! : "Video"),
+            pageURL: dict["pageURL"] as? String ?? "",
+            contentURLs: content,
+            adURLs: ads,
+            preferredURL: preferred.flatMap { AddressParser.isLikelyAdURL($0) ? content.last : $0 } ?? content.last,
+            hasAd: (dict["hasAd"] as? Bool) ?? !ads.isEmpty,
+            waitingForContent: (dict["waitingForContent"] as? Bool) ?? (content.isEmpty && !ads.isEmpty),
+            currentTime: (dict["currentTime"] as? Double) ?? 0,
+            duration: (dict["duration"] as? Double) ?? 0,
+            mime: dict["mime"] as? String ?? "",
+            playing: dict["playing"] as? Bool ?? false
+        )
     }
 }

@@ -1,64 +1,179 @@
 import Combine
 import Foundation
+import SwiftUI
 import WebKit
 
+@MainActor
+final class BrowserModel: ObservableObject {
+    let processPool = WKProcessPool()
+
+    @Published private(set) var tabs: [BrowserTab] = []
+    @Published var selectedID: UUID
+
+    private var tabObservers: [UUID: AnyCancellable] = [:]
+
+    var selected: BrowserTab {
+        tabs.first(where: { $0.id == selectedID }) ?? tabs[0]
+    }
+
+    var recommended: CastCandidate? { selected.tappedVideo?.candidate }
+    var canGoBack: Bool { selected.canGoBack }
+    var canGoForward: Bool { selected.canGoForward }
+    var isLoading: Bool { selected.isLoading }
+    var progress: Double { selected.progress }
+    var candidates: [CastCandidate] {
+        if let item = selected.tappedVideo?.candidate { return [item] }
+        if AddressParser.isDirectMediaURL(selected.currentURL) {
+            return [CastCandidate(
+                id: selected.currentURL.absoluteString,
+                title: selected.pageTitle,
+                url: selected.currentURL,
+                mime: AddressParser.mimeType(for: selected.currentURL),
+                startTime: 0,
+                sourceLabel: "Direct video URL",
+                reliability: 100,
+                recommended: true
+            )]
+        }
+        return []
+    }
+
+    var lastLoadError: String? {
+        get { selected.lastLoadError }
+        set { selected.lastLoadError = newValue }
+    }
+
+    var addressBinding: Binding<String> {
+        Binding(
+            get: { self.selected.addressText },
+            set: { self.selected.addressText = $0 }
+        )
+    }
+
+    init() {
+        let first = BrowserTab(processPool: processPool)
+        tabs = [first]
+        selectedID = first.id
+        first.owner = self
+        observe(first)
+        first.loadHome()
+    }
+
+    func newTab(loading url: URL? = nil) {
+        let tab = BrowserTab(processPool: processPool)
+        tab.owner = self
+        tabs.append(tab)
+        observe(tab)
+        selectedID = tab.id
+        if let url, url.scheme != "ddrcast" {
+            tab.load(url)
+        } else {
+            tab.loadHome()
+        }
+    }
+
+    func closeTab(_ id: UUID) {
+        guard tabs.count > 1, let index = tabs.firstIndex(where: { $0.id == id }) else {
+            selected.loadHome()
+            selected.dismissCapturedVideo()
+            return
+        }
+        let closing = tabs[index]
+        closing.shutdown()
+        tabObservers[id] = nil
+        tabs.remove(at: index)
+        if selectedID == id {
+            let next = tabs[min(index, tabs.count - 1)]
+            selectedID = next.id
+        }
+    }
+
+    func select(_ id: UUID) {
+        guard tabs.contains(where: { $0.id == id }) else { return }
+        selectedID = id
+    }
+
+    func submitAddress() { selected.submitAddress() }
+    func loadHome() { selected.loadHome() }
+    func goBack() { selected.goBack() }
+    func goForward() { selected.goForward() }
+
+    fileprivate func openInNewTab(_ url: URL) {
+        newTab(loading: url)
+    }
+
+    private func observe(_ tab: BrowserTab) {
+        tabObservers[tab.id] = tab.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+}
 
 @MainActor
-final class BrowserModel: NSObject, ObservableObject {
+final class BrowserTab: NSObject, ObservableObject, Identifiable {
+    let id = UUID()
+    let webView: WKWebView
+    weak var owner: BrowserModel?
+
     @Published var addressText = ""
-    @Published var pageTitle = "ddrcast"
+    @Published var pageTitle = "New Tab"
     @Published var currentURL: URL = AddressParser.homeURL
     @Published var canGoBack = false
     @Published var canGoForward = false
     @Published var progress: Double = 0
     @Published var isLoading = false
-    @Published var videos: [DetectedVideo] = []
-    @Published var candidates: [CastCandidate] = []
-    @Published var pageBlockReason: String?
     @Published var lastLoadError: String?
+    @Published var tappedVideo: TappedVideo?
+    @Published var sourcePanelOpen = false
+    @Published var hasCapturedSource = false
 
-    weak var webView: WKWebView?
+    private let messageProxy: ScriptMessageProxy
     private var observing = false
-    private var didLoadInitial = false
 
-    var recommended: CastCandidate? { candidates.first { $0.recommended } ?? candidates.first }
-
-    func attach(_ webView: WKWebView) {
-        if observing, let old = self.webView, old !== webView {
-            detach(old)
-        }
-        self.webView = webView
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-        if !observing {
-            webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
-            webView.addObserver(self, forKeyPath: "canGoBack", options: .new, context: nil)
-            webView.addObserver(self, forKeyPath: "canGoForward", options: .new, context: nil)
-            webView.addObserver(self, forKeyPath: "title", options: .new, context: nil)
-            webView.addObserver(self, forKeyPath: "URL", options: .new, context: nil)
-            observing = true
-        }
-        if !didLoadInitial {
-            didLoadInitial = true
-            loadHome()
-        }
+    var tabTitle: String {
+        if currentURL.scheme == "ddrcast" { return "Home" }
+        if !pageTitle.isEmpty && pageTitle != "New Tab" { return pageTitle }
+        return AddressParser.displayHost(for: currentURL)
     }
 
-    func detach(_ webView: WKWebView) {
-        if observing {
-            webView.removeObserver(self, forKeyPath: "estimatedProgress")
-            webView.removeObserver(self, forKeyPath: "canGoBack")
-            webView.removeObserver(self, forKeyPath: "canGoForward")
-            webView.removeObserver(self, forKeyPath: "title")
-            webView.removeObserver(self, forKeyPath: "URL")
-            observing = false
-        }
-        if self.webView === webView { self.webView = nil }
+    init(processPool: WKProcessPool) {
+        let proxy = ScriptMessageProxy()
+        messageProxy = proxy
+
+        let controller = WKUserContentController()
+        controller.addUserScript(
+            WKUserScript(
+                source: VideoDetector.tapScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            )
+        )
+        controller.add(proxy, name: VideoDetector.messageHandlerName)
+
+        let config = WKWebViewConfiguration()
+        config.processPool = processPool
+        config.userContentController = controller
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        config.allowsPictureInPictureMediaPlayback = false
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.allowsBackForwardNavigationGestures = true
+        webView.allowsLinkPreview = true
+        webView.backgroundColor = UIColor(red: 0.043, green: 0.071, blue: 0.125, alpha: 1)
+        webView.scrollView.backgroundColor = webView.backgroundColor
+        webView.isOpaque = false
+        self.webView = webView
+        super.init()
+        proxy.tab = self
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        startObserving()
     }
 
     func submitAddress() {
-        let url = AddressParser.resolve(addressText)
-        load(url)
+        load(AddressParser.resolve(addressText))
     }
 
     func load(_ url: URL) {
@@ -69,47 +184,74 @@ final class BrowserModel: NSObject, ObservableObject {
             return
         }
         addressText = url.absoluteString
-        webView?.load(URLRequest(url: url))
+        webView.load(URLRequest(url: url))
     }
 
     func loadHome() {
         currentURL = AddressParser.homeURL
         addressText = ""
-        pageTitle = "ddrcast"
-        videos = []
-        candidates = []
-        pageBlockReason = nil
-        guard let webView else { return }
+        pageTitle = "Home"
+        lastLoadError = nil
         if let path = Bundle.main.path(forResource: "Home", ofType: "html") {
             let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
             webView.loadFileURL(URL(fileURLWithPath: path), allowingReadAccessTo: dir)
         } else {
-            webView.loadHTMLString(Self.fallbackHomeHTML, baseURL: nil)
+            webView.loadHTMLString(
+                "<html><body style='background:#0b1220;color:#e8eef7;font-family:-apple-system;padding:24px'><h1>ddrcast</h1><p>Search or enter a URL in the bar above.</p></body></html>",
+                baseURL: nil
+            )
         }
     }
 
-    func goBack() { webView?.goBack() }
-    func goForward() { webView?.goForward() }
-    func reload() { webView?.reload() }
+    func goBack() { webView.goBack() }
+    func goForward() { webView.goForward() }
 
-    func refreshVideos() {
-        webView?.evaluateJavaScript(VideoDetector.userScript, completionHandler: nil)
+    func toggleSourcePanel() {
+        guard hasCapturedSource else { return }
+        sourcePanelOpen.toggle()
     }
 
-    func applyVideoPayload(_ raw: Any) {
-        let detected = VideoDetector.parseVideos(raw)
-        videos = detected
-        rebuildCandidates()
+    func dismissCapturedVideo() {
+        sourcePanelOpen = false
+        hasCapturedSource = false
+        tappedVideo = nil
     }
 
-    func rebuildCandidates() {
-        let page = currentURL.scheme == "ddrcast" ? nil : currentURL
-        candidates = VideoDetector.candidates(pageURL: page, pageTitle: pageTitle, videos: videos)
-        pageBlockReason = VideoDetector.pageCastBlockReason(
-            pageURL: page,
-            videos: videos,
-            candidates: candidates
+    func applyTappedVideo(_ raw: Any) {
+        guard let tapped = VideoDetector.parseTapped(raw) else { return }
+        tappedVideo = tapped
+        hasCapturedSource = true
+        sourcePanelOpen = true
+    }
+
+    func shutdown() {
+        stopObserving()
+        webView.stopLoading()
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: VideoDetector.messageHandlerName
         )
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+    }
+
+    private func startObserving() {
+        guard !observing else { return }
+        observing = true
+        webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: "canGoBack", options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: "canGoForward", options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: "title", options: .new, context: nil)
+        webView.addObserver(self, forKeyPath: "URL", options: .new, context: nil)
+    }
+
+    private func stopObserving() {
+        guard observing else { return }
+        observing = false
+        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        webView.removeObserver(self, forKeyPath: "canGoBack")
+        webView.removeObserver(self, forKeyPath: "canGoForward")
+        webView.removeObserver(self, forKeyPath: "title")
+        webView.removeObserver(self, forKeyPath: "URL")
     }
 
     nonisolated override func observeValue(
@@ -119,31 +261,27 @@ final class BrowserModel: NSObject, ObservableObject {
         context: UnsafeMutableRawPointer?
     ) {
         Task { @MainActor in
-            guard let webView = self.webView else { return }
             switch keyPath {
             case "estimatedProgress":
-                self.progress = webView.estimatedProgress
-                self.isLoading = webView.estimatedProgress > 0 && webView.estimatedProgress < 1
+                self.progress = self.webView.estimatedProgress
+                self.isLoading = self.webView.estimatedProgress > 0 && self.webView.estimatedProgress < 1
             case "canGoBack":
-                self.canGoBack = webView.canGoBack
+                self.canGoBack = self.webView.canGoBack
             case "canGoForward":
-                self.canGoForward = webView.canGoForward
+                self.canGoForward = self.webView.canGoForward
             case "title":
-                if let title = webView.title, !title.isEmpty { self.pageTitle = title }
+                if let title = self.webView.title, !title.isEmpty { self.pageTitle = title }
             case "URL":
-                if let url = webView.url {
+                if let url = self.webView.url {
                     if url.isFileURL {
                         self.currentURL = AddressParser.homeURL
-                        if !self.addressText.isEmpty && AddressParser.resolve(self.addressText) != AddressParser.homeURL {
-                            // keep typed text while home is loading
-                        } else {
+                        if self.addressText.isEmpty || AddressParser.resolve(self.addressText) == AddressParser.homeURL {
                             self.addressText = ""
                         }
                     } else {
                         self.currentURL = url
                         self.addressText = url.absoluteString
                     }
-                    self.rebuildCandidates()
                 }
             default:
                 break
@@ -151,25 +289,17 @@ final class BrowserModel: NSObject, ObservableObject {
         }
     }
 
-    private static let fallbackHomeHTML = """
-    <html><body style="background:#0b1220;color:#e8eef7;font-family:-apple-system;padding:24px">
-    <h1>ddrcast</h1><p>Search or enter a URL in the bar above.</p></body></html>
-    """
 }
 
-extension BrowserModel: WKNavigationDelegate {
+extension BrowserTab: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         isLoading = true
         lastLoadError = nil
-        videos = []
-        rebuildCandidates()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoading = false
         progress = 1
-        refreshVideos()
-        rebuildCandidates()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -198,7 +328,7 @@ extension BrowserModel: WKNavigationDelegate {
     }
 }
 
-extension BrowserModel: WKUIDelegate {
+extension BrowserTab: WKUIDelegate {
     func webView(
         _ webView: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
@@ -206,9 +336,22 @@ extension BrowserModel: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-            webView.load(URLRequest(url: url))
+            owner?.openInNewTab(url)
         }
         return nil
     }
 }
 
+final class ScriptMessageProxy: NSObject, WKScriptMessageHandler {
+    weak var tab: BrowserTab?
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        let body = message.body
+        Task { @MainActor in
+            self.tab?.applyTappedVideo(body)
+        }
+    }
+}

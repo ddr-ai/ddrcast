@@ -44,6 +44,19 @@ enum AddressParser {
         ) != nil
     }
 
+    static func isLikelyAdURL(_ url: URL) -> Bool {
+        let s = url.absoluteString.lowercased()
+        let host = (url.host ?? "").lowercased()
+        let tokens = [
+            "doubleclick", "googlesyndication", "googleadservices", "googletagservices",
+            "pagead", "adsystem", "adsrvr", "adnxs", "adservice", "adserver",
+            "/ads/", "/ad/", "preroll", "midroll", "vast", "vmap", "ima3",
+            "spotx", "moatads", "pubmatic", "advertising", "ad-break", "adbreak",
+        ]
+        if tokens.contains(where: { s.contains($0) || host.contains($0) }) { return true }
+        return false
+    }
+
     static func isDirectMediaURL(_ url: URL) -> Bool {
         if url.scheme == "ddrcast" { return false }
         let ext = url.pathExtension.lowercased()

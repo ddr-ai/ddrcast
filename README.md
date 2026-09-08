@@ -6,12 +6,12 @@ Repository: [https://github.com/ddr-ai/ddrcast](https://github.com/ddr-ai/ddrcas
 
 ## What it does
 
-- Full in-app browser (`WKWebView`).
+- Full in-app browser (`WKWebView`) with **multiple tabs**.
 - Toolbar: **Back**, **Forward**, **Home** on the left; combined **URL / search** bar in the center; **Cast** on the right.
 - Cast button discovers Chromecasts on the LAN (mDNS `_googlecast._tcp`) and lists them.
 - Two cast paths, in this order:
   1. **Direct video URL** — you enter or browse to an `.mp4`, `.m3u8`, `.webm`, etc.
-  2. **Embedded video** — the page is scanned for `<video>` / `<source>` / `og:video`. If a real `http(s)` media URL is found, that URL is cast.
+  2. **Tapped video** — only the video you tap is captured. A drawer slides in from the right with that source URL. A small chevron toggles the drawer without changing the tab or page. If a preroll ad is detected, the drawer waits for the content URL and casts that (ad-free on the Chromecast).
 - Playback uses Google’s **Default Media Receiver** (`CC1AD845`). The Chromecast fetches the media URL itself over the network. There is no relay server in ddrcast.
 - Connected state, now-playing bar, play/pause, and **Disconnect**.
 - Keyboard icon while connected — see [Remote text input](#remote-text-input).
@@ -41,7 +41,7 @@ Page-as-receiver-video is **not technically supported** on the Default Media Rec
 
 DRM / logged-in streamers (YouTube, Netflix, and similar) will not cast. That is a protocol/DRM limit, not a missing button.
 
-The home page includes Google’s public Cast sample MP4s so you can verify a device without hunting for a file.
+Tap a video to open the source drawer. Hide it with the chevron; the page stays exactly where you left it. DRM / blob-only players still cannot expose a castable URL.
 
 ## Remote text input
 
@@ -129,11 +129,12 @@ Stock iOS cannot overwrite a sideloaded app by itself. After the first install, 
 
 ## Use
 
-1. Open ddrcast. Home has sample MP4s; or type a URL / search.
-2. Tap the TV button. Pick a Chromecast on the same Wi-Fi.
-3. If the page has a castable `<video>`, the **Recommended** row is the direct media URL (usually `video.currentSrc`).
-4. If nothing is extractable, read the error — the app will not mirror the screen.
-5. Disconnect from the sheet or the now-playing bar to return to normal browsing.
+1. Open ddrcast and type a URL or search. Use **+** in the tab strip for another tab.
+2. Tap a video. A source drawer slides in from the right with that video’s URL. The page is not resized.
+3. If a preroll ad is detected, wait for the content URL, then **Cast ad-free**.
+4. Use the cyan chevron to hide or show the drawer; browsing stays on the same tab and scroll position. **X** dismisses the capture.
+5. Tap the TV button to pick a Chromecast if you are not already connected.
+6. Disconnect from the sheet or the now-playing bar when you are done.
 
 ## Project layout
 

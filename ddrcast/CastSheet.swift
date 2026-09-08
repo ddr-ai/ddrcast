@@ -106,30 +106,31 @@ struct CastSheet: View {
     }
 
     private var mediaSection: some View {
-        Section("Cast this page") {
-            if let recommended = browser.recommended {
-                Button {
-                    cast.cast(recommended)
-                } label: {
-                    candidateRow(recommended)
+        Section("Tapped video") {
+            if let tapped = browser.selected.tappedVideo, let item = tapped.candidate {
+                if tapped.waitingForContent {
+                    Text("This video is playing an ad. The content URL will appear here when it loads.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if tapped.hasAd {
+                    Text("Ad skipped — this is the content source.")
+                        .font(.caption)
+                        .foregroundStyle(.cyan)
                 }
-            }
-            ForEach(browser.candidates.filter { !$0.recommended }) { item in
                 Button {
                     cast.cast(item)
                 } label: {
                     candidateRow(item)
                 }
-            }
-            if browser.candidates.isEmpty {
-                Text(browser.pageBlockReason ?? "No castable video on this page.")
+            } else if let recommended = browser.recommended {
+                Button {
+                    cast.cast(recommended)
+                } label: {
+                    candidateRow(recommended)
+                }
+            } else {
+                Text("Tap a video on the page to capture its source. The page is not scanned for every video.")
                     .font(.callout)
-                    .foregroundStyle(.primary)
-            }
-            if !browser.videos.isEmpty && browser.candidates.isEmpty {
-                Text("Detected \(browser.videos.count) video element(s), none with a direct media URL.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }

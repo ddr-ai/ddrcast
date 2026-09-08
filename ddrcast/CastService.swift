@@ -128,11 +128,29 @@ final class CastService: NSObject, ObservableObject {
         sessions?.endSessionAndStopCasting(true)
     }
 
+    func queue(_ candidate: CastCandidate) {
+        lastError = nil
+        pendingMedia = candidate
+    }
+
+    /// Cast now if a session exists; otherwise remember the item and start discovery.
+    @discardableResult
+    func castOrQueue(_ candidate: CastCandidate) -> Bool {
+        lastError = nil
+        if sessions?.currentCastSession != nil {
+            cast(candidate)
+            return true
+        }
+        pendingMedia = candidate
+        startDiscovery()
+        return false
+    }
+
     func cast(_ candidate: CastCandidate) {
         lastError = nil
         guard let session = sessions?.currentCastSession else {
             pendingMedia = candidate
-            lastError = "Connect to a Chromecast first, then cast."
+            startDiscovery()
             return
         }
         guard let client = session.remoteMediaClient else {
