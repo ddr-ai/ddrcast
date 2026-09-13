@@ -1,0 +1,6 @@
+{
+  "otaVersion": 1,
+  "minAppBuild": 6,
+  "notes": "Roku launch ids and tap-to-cast detector",
+  "files": ["video-detector.js", "Home.html", "config.json"]
+}
