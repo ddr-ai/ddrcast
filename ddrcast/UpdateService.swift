@@ -2,49 +2,25 @@ import Combine
 import Foundation
 import UIKit
 
-
-struct LatestBuild: Codable, Equatable {
-    var version: String
-    var build: Int
-    var ipaURL: String
-    var notes: String?
-    var date: String?
-    var installPageURL: String?
-}
-
+/// In-app updates. JS/HTML/config apply immediately. No re-sign, no reinstall.
 @MainActor
 final class UpdateService: ObservableObject {
     static let shared = UpdateService()
 
-    static let feedURL = URL(string:
-        "https://github.com/ddr-ai/ddrcast/releases/download/unsigned-ipa/latest.json"
-    )!
-    static let installPage = URL(string: "https://ddr-ai.github.io/ddrcast/")!
-
-    @Published var latest: LatestBuild?
     @Published var checking = false
     @Published var lastError: String?
+    @Published var banner: String?
 
-    var currentBuild: Int {
-        Int(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0") ?? 0
-    }
-
-    var updateAvailable: Bool {
-        guard let latest else { return false }
-        return latest.build > currentBuild
-    }
-
-    private var autoOpenedFor: Int = 0
     private var timer: Timer?
 
     private init() {}
 
     func start() {
-        Task { await check(autoInstall: true) }
+        Task { await refresh() }
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                await self?.check(autoInstall: true)
+                await self?.refresh()
             }
         }
         NotificationCenter.default.addObserver(
@@ -53,61 +29,33 @@ final class UpdateService: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                await self?.check(autoInstall: true)
+                await self?.refresh()
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .ddrcastOTAApplied,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                let notes = OTAUpdateService.shared.appliedNotes ?? "Updated"
+                self?.banner = notes
             }
         }
     }
 
-    func check(autoInstall: Bool) async {
+    func refresh() async {
         checking = true
         lastError = nil
         defer { checking = false }
-        var req = URLRequest(url: Self.feedURL)
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        req.timeoutInterval = 15
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            if let http = resp as? HTTPURLResponse, http.statusCode != 200 {
-                lastError = "update feed HTTP \(http.statusCode)"
-                return
-            }
-            let decoded = try JSONDecoder().decode(LatestBuild.self, from: data)
-            latest = decoded
-            if autoInstall, decoded.build > currentBuild, autoOpenedFor != decoded.build {
-                autoOpenedFor = decoded.build
-                apply()
-            }
-        } catch {
-            lastError = error.localizedDescription
+        await OTAUpdateService.shared.refresh()
+        lastError = OTAUpdateService.shared.lastError
+        if OTAUpdateService.shared.didApplyThisSession, banner == nil {
+            banner = OTAUpdateService.shared.appliedNotes ?? "ddrcast updated"
         }
     }
 
-    func apply() {
-        guard let latest else {
-            UIApplication.shared.open(Self.installPage)
-            return
-        }
-        guard let ipa = URL(string: latest.ipaURL) else { return }
-        let encoded = ipa.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ipa.absoluteString
-        let schemes = [
-            "altstore://install?url=\(encoded)",
-            "sidestore://install?url=\(encoded)",
-            "feather://install?url=\(encoded)",
-            "esign://install?url=\(encoded)",
-            "gbox://import?url=\(encoded)",
-            "apple-magnifier://install?url=\(encoded)",
-            "trollstore://install?url=\(encoded)",
-        ]
-        for s in schemes {
-            if let url = URL(string: s), UIApplication.shared.canOpenURL(url) {
-                UIApplication.shared.open(url)
-                return
-            }
-        }
-        if let page = latest.installPageURL.flatMap(URL.init(string:)) {
-            UIApplication.shared.open(page)
-        } else {
-            UIApplication.shared.open(Self.installPage)
-        }
+    func dismissBanner() {
+        banner = nil
     }
 }

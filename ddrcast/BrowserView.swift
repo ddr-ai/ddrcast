@@ -63,11 +63,11 @@ struct BrowserView: View {
             }
         }
         .overlay(alignment: .top) {
-            if updates.updateAvailable {
+            if let banner = updates.banner {
                 Button {
-                    updates.apply()
+                    updates.dismissBanner()
                 } label: {
-                    Text("Update available — tap to install \(updates.latest?.version ?? "")")
+                    Text(banner)
                         .font(.footnote.weight(.semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)

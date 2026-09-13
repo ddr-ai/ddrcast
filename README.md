@@ -1,6 +1,6 @@
 # ddrcast
 
-Native **iPhone and iPad** web browser that casts video to **Chromecast** devices on the local Wi-Fi.
+Native **iPhone and iPad** web browser that casts video to **Chromecast** and **Roku** devices on the local Wi-Fi.
 
 Repository: [https://github.com/ddr-ai/ddrcast](https://github.com/ddr-ai/ddrcast)
 
@@ -8,13 +8,14 @@ Repository: [https://github.com/ddr-ai/ddrcast](https://github.com/ddr-ai/ddrcas
 
 - Full in-app browser (`WKWebView`) with **multiple tabs**.
 - Toolbar: **Back**, **Forward**, **Home** on the left; combined **URL / search** bar in the center; **Cast** on the right.
-- Cast button discovers Chromecasts on the LAN (mDNS `_googlecast._tcp`) and lists them.
+- Cast button discovers **Chromecast** (mDNS) and **Roku** (LAN scan of ECP port 8060) on the same Wi-Fi.
 - Two cast paths, in this order:
   1. **Direct video URL** — you enter or browse to an `.mp4`, `.m3u8`, `.webm`, etc.
-  2. **Tapped video** — only the video you tap is captured. A drawer slides in from the right with that source URL. A small chevron toggles the drawer without changing the tab or page. If a preroll ad is detected, the drawer waits for the content URL and casts that (ad-free on the Chromecast).
-- Playback uses Google’s **Default Media Receiver** (`CC1AD845`). The Chromecast fetches the media URL itself over the network. There is no relay server in ddrcast.
+  2. **Tapped video** — only the video you tap is captured. A drawer slides in from the right with that source URL. A small chevron toggles the drawer without changing the tab or page. If a preroll ad is detected, the drawer waits for the content URL and casts that (ad-free on the TV).
+- Chromecast uses Google’s **Default Media Receiver**. Roku uses local **ECP** (`PlayOnRoku` / media player). No relay server.
 - Connected state, now-playing bar, play/pause, and **Disconnect**.
-- Keyboard icon while connected — see [Remote text input](#remote-text-input).
+- Keyboard: Roku accepts the iPhone keyboard over ECP. Chromecast Default Media Receiver does not — see [Remote text input](#remote-text-input).
+- **In-app updates** for detector JS, home HTML, and Roku config. The app downloads them on launch and applies them without re-signing or reinstalling. See [In-app updates](#in-app-updates).
 
 ## Technology choices
 
@@ -22,8 +23,9 @@ Repository: [https://github.com/ddr-ai/ddrcast](https://github.com/ddr-ai/ddrcas
 |---|---|---|
 | UI | **SwiftUI**, iOS 17+, iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`) | Same native stack as [ddrdesk-ios](https://github.com/ddr-ai/ddrdesk-ios). |
 | Browser | **WKWebView** | The system web engine: JS, cookies, media, back-forward list. |
-| Cast | **Google Cast iOS Sender SDK** (`google-cast-sdk` ~> 4.8.6) via CocoaPods | Official implementation of the Cast V2 protocol (local mDNS discovery, TLS to port 8009, media namespace). |
-| Receiver | **Default Media Receiver only** | No custom receiver and no registered Cast App ID. Direct media URLs are what this receiver is for. |
+| Chromecast | **Google Cast iOS Sender SDK** (`google-cast-sdk` ~> 4.8.6) | Cast V2 on the LAN (mDNS + TLS 8009). Default Media Receiver only. |
+| Roku | **Roku ECP** on port 8060 | Documented local HTTP API. Discovery is a subnet probe of `/query/device-info` (works without a multicast entitlement). Play via PlayOnRoku `15985` then Media Player `2213`. |
+| In-app update | GitHub Pages `ota/` | Detector JS, Home.html, and config.json. Applied in Application Support on launch. |
 | Search | DuckDuckGo | URL bar accepts either a URL or a search query. |
 | CI | GitHub Actions `macos-26` | Builds an `.ipa` on every push with the iOS SDK that includes `UIGlassEffect` (required by Cast SDK 4.8.6). Signs when secrets exist; otherwise unsigned for sideload. |
 
@@ -47,14 +49,21 @@ Tap a video to open the source drawer. Hide it with the chevron; the page stays 
 
 While connected, the Cast UI includes a **keyboard** icon and a native `TextField`.
 
-**The Default Media Receiver cannot accept that text.** It has no text field and no Cast text-input namespace. ddrcast does **not** fake the on-TV letter picker and does **not** implement Android TV Remote (a different protocol, Google TV devices only) or a custom receiver channel.
+**Chromecast Default Media Receiver cannot accept that text.** It has no text field and no Cast text-input namespace. ddrcast does **not** fake the on-TV letter picker.
 
-The keyboard screen states this limitation instead of silently dropping keystrokes. A workaround needs either:
+**Roku can.** While connected to a Roku, Send posts ECP `keypress/Lit_…` characters over the LAN.
 
-1. A registered custom Cast receiver that implements a text-input message namespace, or
-2. Android TV Remote on Chromecast-with-Google-TV / Google TV (not classic Chromecast HDMI dongles).
+## In-app updates
 
-Neither is in this repo until you choose one.
+Detector script, home page, and Roku app IDs live in [`ota/`](ota/) and are published to:
+
+https://ddr-ai.github.io/ddrcast/ota/manifest.json
+
+On launch (and every two minutes, and when returning to the app) ddrcast downloads a newer `otaVersion` and applies it immediately. **No re-sign. No reinstall.** A cyan banner confirms the update.
+
+Pushing files under `ota/` runs the **Publish in-app OTA** workflow (no Mac IPA build).
+
+A new **IPA** is only needed when native Swift changes (this Roku + OTA client). After you sideload that build once, later JS/config changes arrive in-app.
 
 ## Setup (Mac)
 
@@ -133,7 +142,7 @@ Stock iOS cannot overwrite a sideloaded app by itself. After the first install, 
 2. Tap a video. A source drawer slides in from the right with that video’s URL. The page is not resized.
 3. If a preroll ad is detected, wait for the content URL, then **Cast ad-free**.
 4. Use the cyan chevron to hide or show the drawer; browsing stays on the same tab and scroll position. **X** dismisses the capture.
-5. Tap the TV button to pick a Chromecast if you are not already connected.
+5. Tap the TV button and pick a **Chromecast** or **Roku** on the same Wi-Fi.
 6. Disconnect from the sheet or the now-playing bar when you are done.
 
 ## Project layout

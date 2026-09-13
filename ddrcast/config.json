@@ -1,0 +1,5 @@
+{
+  "rokuAppIds": ["15985", "2213"],
+  "rokuPlayPath": "launch",
+  "notes": "PlayOnRoku 15985, Media Player 2213 fallback"
+}

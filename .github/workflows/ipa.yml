@@ -104,6 +104,12 @@ jobs:
           open("latest.json","w").write(json.dumps(latest, indent=2) + "\n")
           open("altstore.json","w").write(json.dumps(altstore, indent=2) + "\n")
           os.makedirs("site", exist_ok=True)
+          os.makedirs("site/ota", exist_ok=True)
+          import shutil
+          for name in ("manifest.json", "config.json", "video-detector.js", "Home.html"):
+              src = os.path.join("ota", name)
+              if os.path.exists(src):
+                  shutil.copy(src, os.path.join("site/ota", name))
           enc = ipa.replace(":", "%3A").replace("/", "%2F")
           tmpl = open("web/install.html").read()
           html = (tmpl

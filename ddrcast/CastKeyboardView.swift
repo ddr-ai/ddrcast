@@ -1,25 +1,34 @@
 import SwiftUI
 
-/// Native iPhone/iPad keyboard UI for Cast remote text.
-/// The Default Media Receiver has no text-input namespace, so this view
-/// does not send keystrokes and does not emulate the on-TV letter picker.
+/// Native iPhone/iPad keyboard. Roku accepts ECP `Lit_` keypresses.
+/// Chromecast Default Media Receiver does not.
 struct CastKeyboardView: View {
     @EnvironmentObject var cast: CastService
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var showBlocked = false
+    @State private var sending = false
+    @State private var sentOK = false
     @FocusState private var focused: Bool
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text(limitation)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                if cast.supportsRemoteKeyboard {
+                    Text("Typing here sends characters to \(cast.connection.deviceName ?? "the Roku") over the local network (ECP).")
+                        .font(.callout)
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.cyan.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    Text(limitation)
+                        .font(.callout)
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.orange.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
 
                 TextField("Type here with the iPhone keyboard", text: $text, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
@@ -28,18 +37,28 @@ struct CastKeyboardView: View {
 
                 Button {
                     focused = false
-                    showBlocked = true
+                    Task { await send() }
                 } label: {
-                    Label("Send to Chromecast", systemImage: "paperplane")
+                    if sending {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label(
+                            cast.supportsRemoteKeyboard ? "Send to Roku" : "Send to Chromecast",
+                            systemImage: "paperplane"
+                        )
                         .frame(maxWidth: .infinity)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.cyan)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
 
-                Text("Send is refused on purpose: this receiver cannot take the text. No workaround is implemented.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if sentOK {
+                    Text("Sent.")
+                        .font(.caption)
+                        .foregroundStyle(.cyan)
+                }
 
                 Spacer()
             }
@@ -65,7 +84,21 @@ struct CastKeyboardView: View {
         let name = cast.connection.deviceName ?? "this Chromecast"
         return """
         \(name) is running Google’s Default Media Receiver, which has no text field and does not accept keyboard input from a Cast sender. \
-        ddrcast will not fake the on-TV letter-by-letter keyboard.
+        Connect to a Roku to type with the iPhone keyboard.
         """
+    }
+
+    private func send() async {
+        let payload = text
+        guard !payload.isEmpty else { return }
+        if !cast.supportsRemoteKeyboard {
+            showBlocked = true
+            return
+        }
+        sending = true
+        let ok = await cast.sendRemoteText(payload)
+        sending = false
+        sentOK = ok
+        if ok { text = "" }
     }
 }

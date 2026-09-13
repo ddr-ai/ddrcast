@@ -37,14 +37,24 @@ enum CastDeviceName {
 
 enum TextInputCapability {
     case unsupportedDefaultReceiver
+    case rokuECP
 }
 
 @MainActor
 final class CastService: NSObject, ObservableObject {
     static let shared = CastService()
 
+    enum Sink: Equatable {
+        case none
+        case chromecast
+        case roku
+    }
+
     @Published private(set) var connection: CastConnectionState = .idle
     @Published private(set) var devices: [GCKDevice] = []
+    @Published private(set) var rokuDevices: [RokuDevice] = []
+    @Published private(set) var connectedRoku: RokuDevice?
+    @Published private(set) var sink: Sink = .none
     @Published private(set) var isDiscovering = false
     @Published private(set) var statusText: String = "Not connected"
     @Published private(set) var nowPlayingTitle: String?
@@ -52,8 +62,11 @@ final class CastService: NSObject, ObservableObject {
     @Published private(set) var lastError: String?
     @Published var volume: Float = 1
 
-    /// Default Media Receiver does not accept remote keyboard text.
-    let textInputCapability: TextInputCapability = .unsupportedDefaultReceiver
+    var supportsRemoteKeyboard: Bool { sink == .roku }
+
+    var textInputCapability: TextInputCapability {
+        sink == .roku ? .rokuECP : .unsupportedDefaultReceiver
+    }
 
     private var attached = false
     private var pendingMedia: CastCandidate?
@@ -94,10 +107,19 @@ final class CastService: NSObject, ObservableObject {
     func startDiscovery() {
         guard attached else { return }
         isDiscovering = true
-        if case .idle = connection { statusText = "Looking for Chromecast devices…" }
+        if case .idle = connection { statusText = "Looking for Chromecast and Roku devices…" }
         discovery?.passiveScan = false
         discovery?.startDiscovery()
         refreshDevices()
+        Task {
+            await RokuService.shared.scan()
+            self.rokuDevices = RokuService.shared.devices
+            self.isDiscovering = false
+            if case .idle = self.connection {
+                let n = self.devices.count + self.rokuDevices.count
+                self.statusText = n == 0 ? "No devices found" : "Found \(n) device(s)"
+            }
+        }
     }
 
     func stopDiscovery() {
@@ -108,6 +130,10 @@ final class CastService: NSObject, ObservableObject {
 
     func connect(to device: GCKDevice) {
         lastError = nil
+        if sink == .roku {
+            connectedRoku = nil
+            sink = .none
+        }
         let name = CastDeviceName.display(device)
         connection = .connecting(name)
         statusText = "Connecting to \(name)…"
@@ -118,6 +144,21 @@ final class CastService: NSObject, ObservableObject {
         }
     }
 
+    func connect(roku device: RokuDevice) {
+        lastError = nil
+        if sessions?.currentCastSession != nil {
+            sessions?.endSessionAndStopCasting(false)
+        }
+        connectedRoku = device
+        sink = .roku
+        connection = .connected(device.name)
+        statusText = "Connected to \(device.name) (Roku)"
+        if let pending = pendingMedia {
+            pendingMedia = nil
+            cast(pending)
+        }
+    }
+
     func disconnect() {
         lastError = nil
         connection = .disconnecting
@@ -125,7 +166,18 @@ final class CastService: NSObject, ObservableObject {
         pendingMedia = nil
         nowPlayingTitle = nil
         isPlaying = false
-        sessions?.endSessionAndStopCasting(true)
+        let roku = connectedRoku
+        connectedRoku = nil
+        sink = .none
+        if let roku {
+            Task { await RokuService.shared.home(on: roku) }
+        }
+        if sessions?.currentCastSession != nil {
+            sessions?.endSessionAndStopCasting(true)
+        } else {
+            connection = .idle
+            statusText = "Not connected"
+        }
     }
 
     func queue(_ candidate: CastCandidate) {
@@ -137,7 +189,7 @@ final class CastService: NSObject, ObservableObject {
     @discardableResult
     func castOrQueue(_ candidate: CastCandidate) -> Bool {
         lastError = nil
-        if sessions?.currentCastSession != nil {
+        if sink == .roku || sessions?.currentCastSession != nil {
             cast(candidate)
             return true
         }
@@ -148,6 +200,22 @@ final class CastService: NSObject, ObservableObject {
 
     func cast(_ candidate: CastCandidate) {
         lastError = nil
+        if let roku = connectedRoku, sink == .roku {
+            nowPlayingTitle = candidate.title
+            statusText = "Loading “\(candidate.title)” on \(roku.name)…"
+            isPlaying = true
+            Task {
+                do {
+                    try await RokuService.shared.play(on: roku, url: candidate.url, title: candidate.title)
+                    self.statusText = "Playing “\(candidate.title)” on \(roku.name)"
+                } catch {
+                    self.isPlaying = false
+                    self.lastError = error.localizedDescription
+                    self.statusText = "Roku play failed"
+                }
+            }
+            return
+        }
         guard let session = sessions?.currentCastSession else {
             pendingMedia = candidate
             startDiscovery()
@@ -178,6 +246,11 @@ final class CastService: NSObject, ObservableObject {
     }
 
     func togglePlayPause() {
+        if let roku = connectedRoku, sink == .roku {
+            Task { await RokuService.shared.playPause(on: roku) }
+            isPlaying.toggle()
+            return
+        }
         guard let client = mediaClient else { return }
         if isPlaying {
             client.pause()
@@ -187,9 +260,18 @@ final class CastService: NSObject, ObservableObject {
     }
 
     func stopMedia() {
+        if let roku = connectedRoku, sink == .roku {
+            Task { await RokuService.shared.home(on: roku) }
+        }
         mediaClient?.stop()
         nowPlayingTitle = nil
         isPlaying = false
+    }
+
+    func sendRemoteText(_ text: String) async -> Bool {
+        guard let roku = connectedRoku, sink == .roku else { return false }
+        await RokuService.shared.sendText(text, on: roku)
+        return true
     }
 
     func setVolume(_ value: Float) {
@@ -238,6 +320,8 @@ extension CastService: GCKSessionManagerListener {
 
     nonisolated func sessionManager(_ sessionManager: GCKSessionManager, didStart session: GCKCastSession) {
         Task { @MainActor in
+            self.connectedRoku = nil
+            self.sink = .chromecast
             let name = CastDeviceName.display(session.device)
             self.connection = .connected(name)
             self.statusText = "Connected to \(name)"
@@ -268,6 +352,8 @@ extension CastService: GCKSessionManagerListener {
         withError error: Error?
     ) {
         Task { @MainActor in
+            if self.sink == .roku { return }
+            self.sink = .none
             self.connection = .idle
             self.nowPlayingTitle = nil
             self.isPlaying = false

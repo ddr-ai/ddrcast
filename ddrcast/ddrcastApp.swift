@@ -14,7 +14,10 @@ struct DDRCastApp: App {
                 .environmentObject(updates)
                 .environmentObject(browser)
                 .preferredColorScheme(.dark)
-                .task { updates.start() }
+                .task {
+                    await OTAUpdateService.shared.refresh()
+                    updates.start()
+                }
         }
     }
 }

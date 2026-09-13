@@ -170,6 +170,22 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         webView.navigationDelegate = self
         webView.uiDelegate = self
         startObserving()
+        NotificationCenter.default.addObserver(
+            forName: .ddrcastOTAApplied,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.applyOTAResources()
+            }
+        }
+    }
+
+    func applyOTAResources() {
+        webView.evaluateJavaScript(VideoDetector.tapScript, completionHandler: nil)
+        if currentURL.scheme == "ddrcast" {
+            loadHome()
+        }
     }
 
     func submitAddress() {
@@ -192,6 +208,10 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         addressText = ""
         pageTitle = "Home"
         lastLoadError = nil
+        if let ota = OTAUpdateService.shared.fileURL("Home.html") {
+            webView.loadFileURL(ota, allowingReadAccessTo: ota.deletingLastPathComponent())
+            return
+        }
         if let path = Bundle.main.path(forResource: "Home", ofType: "html") {
             let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
             webView.loadFileURL(URL(fileURLWithPath: path), allowingReadAccessTo: dir)

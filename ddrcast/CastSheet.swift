@@ -44,7 +44,7 @@ struct CastSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(cast.statusText)
                     if cast.isDiscovering {
-                        Text("Scanning the local network for Chromecast devices.")
+                        Text("Scanning the local network for Chromecast and Roku devices.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -70,34 +70,56 @@ struct CastSheet: View {
     }
 
     private var devicesSection: some View {
-        Section("Chromecast devices") {
-            if cast.devices.isEmpty {
+        Section("Devices") {
+            if cast.devices.isEmpty && cast.rokuDevices.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("No devices found yet.")
-                    Text("Keep this iPhone or iPad on the same Wi-Fi as the Chromecast, then allow Local Network access when iOS asks.")
+                    Text("Keep this iPhone or iPad on the same Wi-Fi as the Chromecast or Roku, then allow Local Network access when iOS asks.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button("Scan again") { cast.startDiscovery() }
                 }
-            } else {
-                ForEach(cast.devices, id: \.uniqueID) { device in
-                    Button {
-                        cast.connect(to: device)
-                    } label: {
-                        HStack {
-                            Image(systemName: "tv")
-                            VStack(alignment: .leading) {
-                                Text(CastDeviceName.display(device))
-                                    .foregroundStyle(.primary)
-                                Text(device.modelName ?? "Cast device")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if cast.connection.deviceName == CastDeviceName.display(device), cast.connection.isConnected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.cyan)
-                            }
+            }
+            ForEach(cast.devices, id: \.uniqueID) { device in
+                Button {
+                    cast.connect(to: device)
+                } label: {
+                    HStack {
+                        Image(systemName: "tv")
+                        VStack(alignment: .leading) {
+                            Text(CastDeviceName.display(device))
+                                .foregroundStyle(.primary)
+                            Text(device.modelName ?? "Chromecast")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if cast.sink == .chromecast,
+                           cast.connection.deviceName == CastDeviceName.display(device),
+                           cast.connection.isConnected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.cyan)
+                        }
+                    }
+                }
+            }
+            ForEach(cast.rokuDevices) { device in
+                Button {
+                    cast.connect(roku: device)
+                } label: {
+                    HStack {
+                        Image(systemName: "tv.and.hifispeaker.fill")
+                        VStack(alignment: .leading) {
+                            Text(device.name)
+                                .foregroundStyle(.primary)
+                            Text("Roku · \(device.model)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if cast.connectedRoku?.id == device.id, cast.sink == .roku {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.cyan)
                         }
                     }
                 }
@@ -169,7 +191,9 @@ struct CastSheet: View {
             } label: {
                 Label("Type with iPhone keyboard", systemImage: "keyboard")
             }
-            Text("The Default Media Receiver cannot accept remote text. Opening the keyboard will explain this instead of faking TV key events.")
+            Text(cast.supportsRemoteKeyboard
+                ? "Roku accepts the iPhone keyboard over the local network."
+                : "Chromecast Default Media Receiver cannot accept remote text. Roku can.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

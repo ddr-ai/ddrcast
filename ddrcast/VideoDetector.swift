@@ -70,10 +70,22 @@ struct CastCandidate: Identifiable, Equatable {
 enum VideoDetector {
     static let messageHandlerName = "ddrcast"
 
-    /// Runs in every frame. Does nothing until the user taps/clicks a video
-    /// (or its play control). Then it watches only that element so preroll ads
-    /// can be replaced by the content source.
-    static let tapScript = #"""
+    /// OTA file, then bundled `video-detector.js`.
+    static var tapScript: String {
+        let ota = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("ota/video-detector.js")
+        if let ota, let s = try? String(contentsOf: ota, encoding: .utf8), s.contains("tapped-video") {
+            return s
+        }
+        if let url = Bundle.main.url(forResource: "video-detector", withExtension: "js"),
+           let s = try? String(contentsOf: url, encoding: .utf8), !s.isEmpty {
+            return s
+        }
+        return bundledTapScript
+    }
+
+    /// Bundled fallback if the JS resource is missing.
+    static let bundledTapScript = #"""
     (function() {
       if (window.__ddrcastTapInstalled) return;
       window.__ddrcastTapInstalled = true;

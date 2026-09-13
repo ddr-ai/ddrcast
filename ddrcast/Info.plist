@@ -24,8 +24,6 @@
 	<array>
 		<string>altstore</string>
 		<string>sidestore</string>
-		<string>apple-magnifier</string>
-		<string>trollstore</string>
 		<string>feather</string>
 		<string>esign</string>
 		<string>gbox</string>
@@ -49,7 +47,7 @@
 		<string>_CC1AD845._googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ddrcast looks for Chromecast devices on your Wi-Fi so it can cast video over the local network.</string>
+	<string>ddrcast looks for Chromecast and Roku devices on your Wi-Fi so it can cast video over the local network.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

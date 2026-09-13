@@ -18,9 +18,13 @@
 		B10000000000000000000009 /* CastSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* CastSheet.swift */; };
 		B1000000000000000000000A /* CastKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000A /* CastKeyboardView.swift */; };
 		B1000000000000000000000B /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* UpdateService.swift */; };
+		B10000000000000000000010 /* RokuService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* RokuService.swift */; };
+		B10000000000000000000011 /* OTAUpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* OTAUpdateService.swift */; };
 		B1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* Assets.xcassets */; };
 		B1000000000000000000000D /* Home.html in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* Home.html */; };
 		B1000000000000000000000E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* PrivacyInfo.xcprivacy */; };
+		B10000000000000000000012 /* video-detector.js in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* video-detector.js */; };
+		B10000000000000000000013 /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000013 /* config.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +39,10 @@
 		B20000000000000000000009 /* CastSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSheet.swift; sourceTree = "<group>"; };
 		B2000000000000000000000A /* CastKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastKeyboardView.swift; sourceTree = "<group>"; };
 		B2000000000000000000000B /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		B20000000000000000000010 /* RokuService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RokuService.swift; sourceTree = "<group>"; };
+		B20000000000000000000011 /* OTAUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTAUpdateService.swift; sourceTree = "<group>"; };
+		B20000000000000000000012 /* video-detector.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "video-detector.js"; sourceTree = "<group>"; };
+		B20000000000000000000013 /* config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.json; sourceTree = "<group>"; };
 		B2000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B2000000000000000000000D /* Home.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = Home.html; sourceTree = "<group>"; };
 		B2000000000000000000000E /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -75,6 +83,10 @@
 				B2000000000000000000000A /* CastKeyboardView.swift */,
 				B20000000000000000000004 /* VideoDetector.swift */,
 				B2000000000000000000000B /* UpdateService.swift */,
+				B20000000000000000000010 /* RokuService.swift */,
+				B20000000000000000000011 /* OTAUpdateService.swift */,
+				B20000000000000000000012 /* video-detector.js */,
+				B20000000000000000000013 /* config.json */,
 				B2000000000000000000000D /* Home.html */,
 				B2000000000000000000000C /* Assets.xcassets */,
 				B2000000000000000000000E /* PrivacyInfo.xcprivacy */,
@@ -152,6 +164,8 @@
 				B1000000000000000000000C /* Assets.xcassets in Resources */,
 				B1000000000000000000000D /* Home.html in Resources */,
 				B1000000000000000000000E /* PrivacyInfo.xcprivacy in Resources */,
+				B10000000000000000000012 /* video-detector.js in Resources */,
+				B10000000000000000000013 /* config.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +187,8 @@
 				B10000000000000000000009 /* CastSheet.swift in Sources */,
 				B1000000000000000000000A /* CastKeyboardView.swift in Sources */,
 				B1000000000000000000000B /* UpdateService.swift in Sources */,
+				B10000000000000000000010 /* RokuService.swift in Sources */,
+				B10000000000000000000011 /* OTAUpdateService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

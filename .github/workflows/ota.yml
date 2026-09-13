@@ -1,0 +1,28 @@
+name: Publish in-app OTA
+
+# JS / HTML / config only. The installed app pulls these on launch.
+# No IPA, no re-sign, no reinstall.
+on:
+  push:
+    paths:
+      - "ota/**"
+      - ".github/workflows/ota.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  ota:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to GitHub Pages /ota
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ota
+          destination_dir: ota
+          keep_files: true
